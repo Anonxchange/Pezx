@@ -10,6 +10,8 @@ Imported from the public repository https://github.com/Anonxchange/plexy.
 - Public pages: `/en/gift-cards` and `/en/shop`.
 - `pnpm --filter @workspace/pexo run typecheck` checks the imported application.
 - Live catalogs and existing sign-in depend on the original Supabase project through `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Do not replace that database or fabricate product data.
+- Keep Turnstile installed. `VITE_DISABLE_TURNSTILE=true` pauses the frontend challenge only in development; production ignores this override. Supabase's server-side CAPTCHA policy is independent and must not be silently bypassed.
+- Existing Reown configuration reads `VITE_REOWN_PROJECT_ID`; never request wallet seed phrases or private keys.
 
 ## Run & Operate
 

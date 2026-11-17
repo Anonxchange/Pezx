@@ -443,7 +443,7 @@ export function AppHeader() {
               <button
                 className="px-tool-cart"
                 type="button"
-                aria-label={`Open shop cart, ${itemCount} ${itemCount === 1 ? "item" : "items"}`}
+                aria-label={`Open cart, ${itemCount} ${itemCount === 1 ? "item" : "items"}`}
               >
                 <ShoppingCart aria-hidden="true" />
                 <span className="px-tool-cart-count" aria-hidden="true">{itemCount}</span>

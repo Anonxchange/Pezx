@@ -11,6 +11,8 @@ import { CurrentMarketingPage } from "@/components/marketing/current-marketing-p
 import { useGiftCardCountries } from "@/hooks/use-reloadly";
 import { useAirtimeOperators } from "@/hooks/use-airtime-operators";
 import { guessCountry, rememberCountry, savedCountry } from "@/lib/gift-card-utils";
+import { useTopupCart, type SavedTopup } from "@/hooks/use-topup-cart";
+import { openCartCheckout } from "@/lib/cart-checkout";
 
 const TOPUP_CSS = `
 .pxg .gsa{--ink:#091e1c;--mute:#52625f;--line:#e3ebe9;--field:#f3f7f6;--lime:#bef264;color:var(--ink);background:#fff;min-height:80vh;padding-bottom:40px}
@@ -292,36 +294,55 @@ const TopupDetailView = ({
   onBack: () => void;
 }) => {
   const [descOpen, setDescOpen] = useState(true);
+  const topupCart = useTopupCart();
 
   const currency = selectedOperator.senderCurrencyCode || "USD";
   const minAmt   = selectedOperator.minAmount ?? "";
   const maxAmt   = selectedOperator.maxAmount ?? "";
   const rangePlaceholder = minAmt && maxAmt ? `${minAmt} - ${maxAmt}` : "Enter amount";
 
-  const handleCheckout = () => {
-    if (!amount || !phoneNumber) {
-      toast.error("Please enter both phone number and amount");
-      return;
+  const prepareTopup = (): Omit<SavedTopup, "id"> | null => {
+    const numericAmount = Number(amount);
+    const normalizedPhone = phoneNumber.replace(/[\s()+-]/g, "");
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0 || !/^[1-9]\d{6,14}$/.test(normalizedPhone)) {
+      toast.error("Enter a valid amount and full international phone number.");
+      return null;
     }
-    localStorage.setItem("pexly_pending_order", JSON.stringify({
-      type: "topup",
+    if ((selectedOperator.minAmount != null && numericAmount < Number(selectedOperator.minAmount)) ||
+        (selectedOperator.maxAmount != null && numericAmount > Number(selectedOperator.maxAmount)) ||
+        (selectedOperator.fixedAmounts?.length > 0 && !selectedOperator.fixedAmounts.some((value: number) => Number(value) === numericAmount))) {
+      toast.error("Choose an amount supported by this operator.");
+      return null;
+    }
+    return {
       title: `${selectedOperator.name} Top-Up`,
       description: `Mobile top-up — ${selectedOperator.name}`,
-      amount: Number(amount),
+      amount: numericAmount,
       currency: currency.toLowerCase(),
       image: sanitizeImageUrl(selectedOperator.logoUrls?.[0]),
       metadata: {
         service: "mobile-topup",
         operatorId: selectedOperator.operatorId,
-        recipientPhone: phoneNumber,
+        recipientPhone: normalizedPhone,
         recipientCountryCode: selectedCountry,
         operatorName: selectedOperator.name,
       },
-    }));
-    devLog.info("Redirecting to checkout for topup");
-    const seg = window.location.pathname.split("/")[1];
-    const langBase = seg && seg.length === 2 ? `/${seg}` : "/en";
-    window.open(`${langBase}/checkout`, "_blank");
+    };
+  };
+
+  const handleAddToCart = () => {
+    const order = prepareTopup();
+    if (order) topupCart.addItem(order);
+  };
+
+  const handleCheckout = () => {
+    const order = prepareTopup();
+    if (!order) return;
+    try {
+      openCartCheckout({ ...order, type: "topup" });
+    } catch {
+      toast.error("Could not open checkout. Allow browser storage and try again.");
+    }
   };
 
   const [liked, setLiked] = useState(false);
@@ -448,7 +469,7 @@ const TopupDetailView = ({
       <div className="space-y-3 mb-8">
         <button
           disabled={!amount || !phoneNumber}
-          onClick={handleCheckout}
+          onClick={handleAddToCart}
           className="w-full flex items-center justify-center gap-2 py-4 px-6 rounded-full bg-[#FFC439] hover:bg-[#f0b429] active:bg-[#e0a420] disabled:opacity-50 disabled:cursor-not-allowed text-[#003087] font-bold text-base transition-colors shadow-md"
         >
           <span>Add to cart</span>

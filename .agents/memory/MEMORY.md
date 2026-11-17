@@ -1,0 +1,1 @@
+- [Cart and checkout boundaries](cart-checkout-boundaries.md) — one shared header cart; shop, gift cards, and top-ups retain separate checkouts.
