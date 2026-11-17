@@ -7,14 +7,13 @@ import {
   type ShopifyProduct,
 } from "@/lib/shopify-service";
 import { useAirtimeOperators } from "@/hooks/use-airtime-operators";
+import { useDigitalCountry } from "@/lib/country-preferences";
 import { useGiftCardCatalog } from "@/hooks/use-gift-card-catalog";
 // Same helpers the gift cards page uses.
 import {
   airTile,
   giftTile,
-  guessCountry,
   preferredRank,
-  savedCountry,
   uniqueByName,
   type CardTile,
 } from "@/lib/gift-card-utils";
@@ -97,12 +96,15 @@ function useShopCategories() {
 
   useEffect(() => {
     let alive = true;
-    (async () => {
+    let request = 0;
+    const load = async () => {
+      const current = ++request;
+      setLoading(true);
       const [types, prods] = await Promise.all([
         shopifyService.getProductTypes(250).catch(() => [] as string[]),
         shopifyService.getProducts(250, undefined, undefined).catch(() => ({ products: [] as any[] })),
       ]);
-      if (!alive) return;
+      if (!alive || current !== request) return;
       const map = new Map<string, ShopCategory>();
       for (const t of types as string[]) {
         const name = String(t).trim();
@@ -119,8 +121,10 @@ function useShopCategories() {
       }
       setCats(Array.from(map.values()).sort((x, y) => y.count - x.count || x.name.localeCompare(y.name)));
       setLoading(false);
-    })();
-    return () => { alive = false; };
+    };
+    void load();
+    window.addEventListener(MARKET_CHANGED_EVENT, load);
+    return () => { alive = false; window.removeEventListener(MARKET_CHANGED_EVENT, load); };
   }, []);
 
   return { cats, loading };
@@ -415,15 +419,18 @@ function useRailProducts() {
 
   useEffect(() => {
     let alive = true;
+    let request = 0;
     const load = async () => {
+      const current = ++request;
+      setLoading(true);
       try {
         const res = await shopifyService.getProducts(24, undefined, undefined);
-        if (!alive) return;
+        if (!alive || current !== request) return;
         setItems((res.products as ShopifyProduct[]).map(toRail));
       } catch {
-        if (alive) setItems([]);
+        if (alive && current === request) setItems([]);
       } finally {
-        if (alive) setLoading(false);
+        if (alive && current === request) setLoading(false);
       }
     };
     load();
@@ -491,8 +498,8 @@ const HOME_GIFT_COUNT = 6;
 const HOME_TOPUP_COUNT = 4;
 
 function GiftCardsAndTopUps() {
-  const country = useMemo(() => savedCountry() ?? guessCountry(), []);
-  const cat = useGiftCardCatalog({ countryCode: country, size: 40, enabled: true });
+  const country = useDigitalCountry();
+  const cat = useGiftCardCatalog({ countryCode: country, size: 40, enabled: !!country });
   const air = useAirtimeOperators(country, true);
 
   const tiles = useMemo(() => {

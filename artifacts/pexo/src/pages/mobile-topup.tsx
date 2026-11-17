@@ -10,9 +10,10 @@ import { CurrentMarketingPage } from "@/components/marketing/current-marketing-p
 // Same data hooks as the All Gift Cards page, so top-up works for guests exactly like it does there.
 import { useGiftCardCountries } from "@/hooks/use-reloadly";
 import { useAirtimeOperators } from "@/hooks/use-airtime-operators";
-import { guessCountry, rememberCountry, savedCountry } from "@/lib/gift-card-utils";
 import { useTopupCart, type SavedTopup } from "@/hooks/use-topup-cart";
 import { openCartCheckout } from "@/lib/cart-checkout";
+import { useDigitalCountry, openCountryMenu } from "@/lib/country-preferences";
+import { CountrySummary } from "@/components/country-summary";
 
 const TOPUP_CSS = `
 .pxg .gsa{--ink:#091e1c;--mute:#52625f;--line:#e3ebe9;--field:#f3f7f6;--lime:#bef264;color:var(--ink);background:#fff;min-height:80vh;padding-bottom:40px}
@@ -555,10 +556,11 @@ const Index = () => {
   const [selectedOperator, setSelectedOperator] = useState<any>(null);
   const [amount, setAmount] = useState<string>("");
   const [kind, setKind] = useState<"all" | "data">("all");
-  const [selectedCountry, setSelectedCountry] = useState<string>(() => {
-    const s = savedCountry();
-    return s && s !== "ALL" ? s : guessCountry();
-  });
+  const selectedCountry = useDigitalCountry();
+  useEffect(() => {
+    setSelectedOperator(null);
+    setAmount("");
+  }, [selectedCountry]);
 
   const countriesQuery = useGiftCardCountries();
   const operatorsQuery = useAirtimeOperators(selectedCountry, true);
@@ -596,12 +598,6 @@ const Index = () => {
       .map(a => ({ amount: a, description: null }));
   }, [selectedOperator]);
 
-  const changeCountry = (c: string) => {
-    setSelectedCountry(c);
-    setSelectedOperator(null);
-    rememberCountry(c);
-  };
-
   const openOperator = (operator: any) => {
     setSelectedOperator(operator);
     setAmount("");
@@ -636,7 +632,8 @@ const Index = () => {
                 </div>
               </div>
 
-              {selectedOperator ? (
+              <div className="gsa-w pt-4"><CountrySummary topup /><p className="text-sm mt-2">Choose the recipient’s country and verify their number before purchasing.</p></div>
+              {selectedOperator && selectedCountry ? (
                 <div className={"gsa-w pt-6"}>
                   <TopupDetailView
                     selectedOperator={selectedOperator}
@@ -656,16 +653,10 @@ const Index = () => {
                   <h1 className={"gsa-hero"}>{"Top-up prepaid phones, from anywhere."}</h1>
 
                   <div className={"gsa-bar"}>
-                    <label className={"gsa-cs"}>
-                      <img className={"gsa-flag"} src={flagUrl(selectedCountry)} alt={""} />
+                    <button type="button" className={"gsa-cs"} onClick={() => openCountryMenu("digital")} aria-label="Change recipient country">
+                      {selectedCountry ? <img className={"gsa-flag"} src={flagUrl(selectedCountry)} alt={""} /> : <span>Country</span>}
                       <ChevronDown size={18} />
-                      <select value={selectedCountry} onChange={(e) => changeCountry(e.target.value)} aria-label={"Country"}>
-                        {!countries.some((c: any) => c.isoName === selectedCountry) ? <option value={selectedCountry}>{selectedCountry}</option> : null}
-                        {countries.map((c: any) => (
-                          <option key={c.isoName} value={c.isoName}>{c.name}</option>
-                        ))}
-                      </select>
-                    </label>
+                    </button>
                     <input
                       type={"tel"}
                       value={phoneNumber}
@@ -686,8 +677,8 @@ const Index = () => {
                   </div>
 
                   <div className={"gsa-pop"} id={"topup-operators"}>
-                    <img className={"gsa-flag"} src={flagUrl(selectedCountry)} alt={""} />
-                    <span>{"Popular in " + countryName}</span>
+                    {selectedCountry && <img className={"gsa-flag"} src={flagUrl(selectedCountry)} alt={""} />}
+                    <span>{selectedCountry ? "Popular in " + countryName : "Choose a recipient country"}</span>
                   </div>
 
                   <div className={"gsa-filter"}>

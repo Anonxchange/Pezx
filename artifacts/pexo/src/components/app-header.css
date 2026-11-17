@@ -198,7 +198,8 @@
   max-height: min(620px, calc(100dvh - 92px));
   flex-direction: column;
   gap: 12px;
-  overflow: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 14px;
   border: 1px solid rgba(9, 30, 28, 0.1);
   border-radius: 16px;
@@ -225,6 +226,7 @@
 }
 
 .px-country-store-tabs {
+  flex-direction: column;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
@@ -234,6 +236,8 @@
 }
 
 .px-country-store-tabs button {
+  text-align: left;
+  white-space: normal;
   min-height: 36px;
   border: 0;
   border-radius: 8px;
@@ -297,8 +301,14 @@
 }
 
 .px-country-option:hover,
-.px-country-option[aria-selected="true"] {
+.px-country-option[aria-pressed="true"] {
   background: #f0f7e4;
+}
+
+.px-country-option:focus-visible,
+.px-country-store-tabs button:focus-visible {
+  outline: 2px solid #709d36;
+  outline-offset: -2px;
 }
 
 .px-country-option-flag {

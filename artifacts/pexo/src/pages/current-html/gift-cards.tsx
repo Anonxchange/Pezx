@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { CurrentMarketingPage } from "@/components/marketing/current-marketing-page";
-import { useGiftCardCategories, useGiftCardCountries, useGiftCardProducts, type ReloadlyCategory, type ReloadlyProduct } from "@/hooks/use-reloadly";
+import { useGiftCardCategories, useGiftCardProducts, type ReloadlyCategory, type ReloadlyProduct } from "@/hooks/use-reloadly";
 import { useAirtimeOperators, type AirtimeOperator } from "@/hooks/use-airtime-operators";
+import { useDigitalCountry } from "@/lib/country-preferences";
+import { CountrySummary } from "@/components/country-summary";
 
 const HERO_CARDS = [
   { n: "Steam", f: "$20", usd: 20, img: "/marketing-media/gift-cards/steam.jpeg" },
@@ -110,75 +112,6 @@ function useSearchQuery() {
     () => searchQuery,
     () => "",
   );
-}
-
-// Country the shelves show cards for: the visitor's choice, else a guess from
-// the device time zone, else the browser language region.
-const COUNTRY_KEY = "px-country";
-let countryValue: string | null | undefined = undefined;
-const countrySubs = new Set<() => void>();
-function readSavedCountry(): string | null {
-  try {
-    const saved = window.localStorage.getItem(COUNTRY_KEY);
-    return saved && /^[A-Za-z]{2}$/.test(saved) ? saved.toUpperCase() : null;
-  } catch {
-    return null;
-  }
-}
-function setCountry(c: string, remember: boolean) {
-  countryValue = c.toUpperCase();
-  if (remember) {
-    try {
-      window.localStorage.setItem(COUNTRY_KEY, countryValue);
-    } catch {
-      /* ignore */
-    }
-  }
-  countrySubs.forEach((f) => f());
-}
-function useCountry(): string | null {
-  return useSyncExternalStore(
-    (cb) => {
-      countrySubs.add(cb);
-      return () => {
-        countrySubs.delete(cb);
-      };
-    },
-    () => {
-      if (countryValue === undefined) countryValue = readSavedCountry();
-      return countryValue;
-    },
-    () => null,
-  );
-}
-// Time zone -> country for the main markets. Used only to pick a starting country;
-// visitors can change it with the "Cards for" picker.
-const TZ_COUNTRY: Record<string, string> = {
-  "Africa/Lagos": "NG", "Africa/Accra": "GH", "Africa/Nairobi": "KE", "Africa/Johannesburg": "ZA", "Africa/Cairo": "EG",
-  "Africa/Casablanca": "MA", "Africa/Algiers": "DZ", "Africa/Tunis": "TN", "Africa/Addis_Ababa": "ET", "Africa/Dar_es_Salaam": "TZ",
-  "Africa/Kampala": "UG", "Africa/Abidjan": "CI", "Africa/Dakar": "SN", "Africa/Kinshasa": "CD", "Africa/Luanda": "AO",
-  "Europe/London": "GB", "Europe/Dublin": "IE", "Europe/Paris": "FR", "Europe/Berlin": "DE", "Europe/Madrid": "ES", "Europe/Rome": "IT",
-  "Europe/Lisbon": "PT", "Europe/Amsterdam": "NL", "Europe/Brussels": "BE", "Europe/Vienna": "AT", "Europe/Zurich": "CH",
-  "Europe/Stockholm": "SE", "Europe/Oslo": "NO", "Europe/Copenhagen": "DK", "Europe/Helsinki": "FI", "Europe/Warsaw": "PL",
-  "Europe/Prague": "CZ", "Europe/Athens": "GR", "Europe/Istanbul": "TR", "Europe/Kyiv": "UA", "Europe/Kiev": "UA", "Europe/Moscow": "RU",
-  "Asia/Dubai": "AE", "Asia/Riyadh": "SA", "Asia/Kolkata": "IN", "Asia/Calcutta": "IN", "Asia/Karachi": "PK", "Asia/Dhaka": "BD",
-  "Asia/Jakarta": "ID", "Asia/Manila": "PH", "Asia/Bangkok": "TH", "Asia/Ho_Chi_Minh": "VN", "Asia/Saigon": "VN", "Asia/Kuala_Lumpur": "MY",
-  "Asia/Singapore": "SG", "Asia/Shanghai": "CN", "Asia/Hong_Kong": "HK", "Asia/Tokyo": "JP", "Asia/Seoul": "KR", "Asia/Tehran": "IR",
-  "Asia/Jerusalem": "IL", "Asia/Qatar": "QA", "Asia/Kuwait": "KW", "Asia/Colombo": "LK", "Asia/Kathmandu": "NP",
-  "America/New_York": "US", "America/Chicago": "US", "America/Denver": "US", "America/Los_Angeles": "US", "America/Phoenix": "US",
-  "America/Toronto": "CA", "America/Vancouver": "CA", "America/Mexico_City": "MX", "America/Bogota": "CO", "America/Lima": "PE",
-  "America/Santiago": "CL", "America/Argentina/Buenos_Aires": "AR", "America/Sao_Paulo": "BR", "America/Caracas": "VE",
-  "Australia/Sydney": "AU", "Australia/Melbourne": "AU", "Australia/Perth": "AU", "Pacific/Auckland": "NZ",
-};
-function guessCountry(): string {
-  try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (tz && TZ_COUNTRY[tz]) return TZ_COUNTRY[tz];
-  } catch {
-    /* ignore */
-  }
-  const m = (navigator.language || "").match(/-([A-Za-z]{2})$/);
-  return m ? m[1].toUpperCase() : "US";
 }
 
 function fmtNum(n: number) {
@@ -428,21 +361,15 @@ function CategorySection({ cat, index, country, plain }: { cat: ReloadlyCategory
 }
 
 function GiftShelf({ part }: { part: "top" | "bottom" }) {
-  const country = useCountry();
+  const country = useDigitalCountry();
   const q = useSearchQuery();
   const [activeTab, setActiveTab] = useState("popular");
   const counts = useSectionCounts();
-  const countries = useGiftCardCountries({ enabled: part === "top" });
   const categories = useGiftCardCategories();
-
-  useEffect(() => {
-    if (part === "top" && !country && countryValue == null) setCountry(guessCountry(), false);
-  }, [part, country]);
 
   // Popular: one batch for the country, ordered by the PREFERRED brand list
   const list = useGiftCardProducts({ countryCode: country ?? undefined, size: 200, page: 1, staleTime: 1000 * 60 * 10, enabled: !!country && part === "top" });
-  // Search is not limited to the picked country: it looks through every card Reloadly has
-  const found = useGiftCardProducts({ productName: q, size: 60, page: 1, enabled: !!q, staleTime: 1000 * 60 * 10 });
+  const found = useGiftCardProducts({ countryCode: country, productName: q, size: 60, page: 1, enabled: !!q && !!country, staleTime: 1000 * 60 * 10 });
   const air = useAirtimeOperators(country ?? undefined, part === "top");
 
   const popular = useMemo(() => {
@@ -488,17 +415,9 @@ function GiftShelf({ part }: { part: "top" | "bottom" }) {
     <div className={"gs"} id={"gs-top"}>
       <style>{SHELF_CSS}</style>
       <div className={"gs-w"}>
-        <label className={"gs-cty"}>
-          <span>{"Cards for"}</span>
-          <select value={country ?? ""} onChange={(e) => setCountry(e.target.value, true)} aria-label={"Country"}>
-            {country && !(countries.data ?? []).some((c) => c.isoName === country) ? <option value={country}>{country}</option> : null}
-            {(countries.data ?? []).map((c) => (
-              <option key={c.isoName} value={c.isoName}>
-                {c.flag + " " + c.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="gs-cty"><CountrySummary /></div>
+        {!country && <p className="gs-msg" role="status">Choose a redemption country to see available gift cards and top-ups.</p>}
+        {country && !list.isLoading && !list.isError && popular.length === 0 && <p className="gs-msg">No gift cards are available for this country. Use Change to choose another country.</p>}
       </div>
       {q ? null : (
         <div className={"gs-w"}>
@@ -515,12 +434,12 @@ function GiftShelf({ part }: { part: "top" | "bottom" }) {
         {q ? (
           <section className={"gs-sec"}>
             <div className={"gs-sh"}>
-              <h2>{"Results for “" + q + "” in all countries"}</h2>
+              <h2>{"Results for “" + q + "”" + (country ? " in " + country : "")}</h2>
               <button type={"button"} onClick={() => setSearchQuery("")}>
                 {"Clear search"}
               </button>
             </div>
-            {found.isLoading ? (
+            {found.isError ? <p className="gs-msg" role="alert">Search couldn’t be loaded. <button type="button" onClick={() => void found.refetch()}>Try again</button></p> : found.isLoading ? (
               <div className={"gs-grid wrap"}>
                 {Array.from({ length: 10 }).map((_, i) => (
                   <div key={i} className={"gs-sk"}></div>

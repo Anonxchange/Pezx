@@ -1,1 +1,2 @@
 - [Cart and checkout boundaries](cart-checkout-boundaries.md) — one shared header cart; shop, gift cards, and top-ups retain separate checkouts.
+- [Country preference migration](country-preferences.md) — keep digital and delivery choices independent; explicit header choices win conflicting historic shelf choices.

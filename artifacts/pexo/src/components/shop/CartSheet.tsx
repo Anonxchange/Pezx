@@ -25,7 +25,7 @@ export function CartSheet({
     setInternalOpen(value);
     onOpenChange?.(value);
   };
-  const { items, cartId, checkoutUrl, isLoading, updateQuantity, removeItem, refreshCart } = useCart();
+  const { items, cartId, checkoutUrl, isLoading, marketError, updateQuantity, removeItem, refreshCart } = useCart();
   const gifts = useGiftCardCart();
   const topups = useTopupCart();
   const itemCount = items.reduce((n, item) => n + item.quantity, 0)
@@ -59,6 +59,8 @@ export function CartSheet({
         {itemCount === 0 && <p className="rounded-xl bg-muted p-4 text-sm">Your cart is empty. Add products, gift cards, or a mobile top-up to get started.</p>}
         <section aria-labelledby="shop-cart-title" className="rounded-2xl border p-4 space-y-4">
           <h3 id="shop-cart-title" className="font-bold flex items-center gap-2"><ShoppingCart className="h-4 w-4" /> Shop items</h3>
+          {marketError && <p className="text-sm text-destructive" role="alert">{marketError}</p>}
+          {isLoading && items.length > 0 && <p className="text-sm" role="status">Updating shop cart…</p>}
           {isLoading && !items.length ? <Loader2 className="h-5 w-5 animate-spin" aria-label="Loading shop cart" /> :
             !items.length ? <p className="text-sm text-muted-foreground">No shop items added yet.</p> :
             <>
@@ -84,8 +86,8 @@ export function CartSheet({
               </div>)}
               <div className="flex justify-between font-semibold text-sm"><span>Shop subtotal</span><span>{shopSubtotal.toFixed(2)} {shopCurrency}</span></div>
               <p className="text-xs text-muted-foreground">Shipping and applicable taxes are calculated at Shopify checkout.</p>
-              <Button className="w-full rounded-full" disabled={isLoading || !checkoutUrl || shopUnavailable} onClick={() => {
-                if (checkoutUrl) window.location.assign(checkoutUrl);
+              <Button className="w-full rounded-full" disabled={isLoading || !!marketError || !checkoutUrl || shopUnavailable} onClick={() => {
+                if (checkoutUrl && !isLoading && !marketError && !shopUnavailable) window.location.assign(checkoutUrl);
               }}>Checkout shop items <ExternalLink className="ml-2 h-3 w-3" /></Button>
             </>}
         </section>

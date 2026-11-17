@@ -5,7 +5,7 @@ Imported from the public repository https://github.com/Anonxchange/plexy.
 ## Current scope
 
 - The user requested getting the original header, gift-card page, and shop running, not a redesign.
-- Preserve the original implementation. The country selector's location is a discussion, not an approved change.
+- Preserve the original implementation outside country controls. The user approved one header menu with independent digital-service and shop-delivery preferences.
 - Marketplace frontend: `artifacts/pexo/`; managed workflow: `artifacts/pexo: web`.
 - Public pages: `/en/gift-cards` and `/en/shop`.
 - `pnpm --filter @workspace/pexo run typecheck` checks the imported application.
